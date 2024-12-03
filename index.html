@@ -1,0 +1,366 @@
+<script src="http://www.google.com/jsapi" type="text/javascript"></script> 
+<script type="text/javascript">google.load("jquery", "1.3.2");</script>
+
+<style type="text/css">
+	h1 {
+		font-size:32px;
+		font-weight:300;
+	}
+	
+	.disclaimerbox {
+		background-color: #eee;		
+		border: 1px solid #eeeeee;
+		border-radius: 10px ;
+		-moz-border-radius: 10px ;
+		-webkit-border-radius: 10px ;
+		padding: 20px;
+	}
+
+	video.header-vid {
+		height: 140px;
+		border: 1px solid black;
+		border-radius: 10px ;
+		-moz-border-radius: 10px ;
+		-webkit-border-radius: 10px ;
+	}
+	
+	img.header-img {
+		height: 140px;
+		border: 1px solid black;
+		border-radius: 10px ;
+		-moz-border-radius: 10px ;
+		-webkit-border-radius: 10px ;
+	}
+	
+	img.rounded {
+		border: 1px solid #eeeeee;
+		border-radius: 10px ;
+		-moz-border-radius: 10px ;
+		-webkit-border-radius: 10px ;
+	}
+	
+	a:link,a:visited
+	{
+		color: #1367a7;
+		text-decoration: none;
+	}
+	a:hover {
+		color: #208799;
+	}
+	
+	td.dl-link {
+		height: 160px;
+		text-align: center;
+		font-size: 22px;
+	}
+	
+	.layered-paper-big { /* modified from: http://css-tricks.com/snippets/css/layered-paper/ */
+		box-shadow:
+		0px 0px 1px 1px rgba(0,0,0,0.35), /* The top layer shadow */
+		5px 5px 0 0px #fff, /* The second layer */
+		5px 5px 1px 1px rgba(0,0,0,0.35), /* The second layer shadow */
+		10px 10px 0 0px #fff, /* The third layer */
+		10px 10px 1px 1px rgba(0,0,0,0.35), /* The third layer shadow */
+		15px 15px 0 0px #fff, /* The fourth layer */
+		15px 15px 1px 1px rgba(0,0,0,0.35), /* The fourth layer shadow */
+		20px 20px 0 0px #fff, /* The fifth layer */
+		20px 20px 1px 1px rgba(0,0,0,0.35), /* The fifth layer shadow */
+		25px 25px 0 0px #fff, /* The fifth layer */
+		25px 25px 1px 1px rgba(0,0,0,0.35); /* The fifth layer shadow */
+		margin-left: 10px;
+		margin-right: 45px;
+	}
+
+	.paper-big { /* modified from: http://css-tricks.com/snippets/css/layered-paper/ */
+		box-shadow:
+		0px 0px 1px 1px rgba(0,0,0,0.35); /* The top layer shadow */
+
+		margin-left: 10px;
+		margin-right: 45px;
+	}
+
+
+	.layered-paper { /* modified from: http://css-tricks.com/snippets/css/layered-paper/ */
+		box-shadow:
+		0px 0px 1px 1px rgba(0,0,0,0.35), /* The top layer shadow */
+		5px 5px 0 0px #fff, /* The second layer */
+		5px 5px 1px 1px rgba(0,0,0,0.35), /* The second layer shadow */
+		10px 10px 0 0px #fff, /* The third layer */
+		10px 10px 1px 1px rgba(0,0,0,0.35); /* The third layer shadow */
+		margin-top: 5px;
+		margin-left: 10px;
+		margin-right: 30px;
+		margin-bottom: 5px;
+	}
+	
+	.vert-cent {
+		position: relative;
+		top: 50%;
+		transform: translateY(-50%);
+	}
+
+	.center-col {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		text-align: center;
+		flex-direction: column;
+	}
+
+	.center-row {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		text-align: center;
+		flex-direction: row;
+	}
+
+	.bold {
+		font-weight: bold;
+	}
+	
+	.osu-sep {
+		background-color: #BB0000;
+		width: 100%;
+		height: 3px;
+	}
+
+	.nav-link {
+		color: white !important;
+		font-weight: bold;
+	}
+
+	.navbar-brand {
+		color: white !important;
+		font-weight: bold;
+	}
+
+	.rotate-90 {
+		transform: rotate(-90deg);
+	}
+</style>
+
+<html>
+<head>
+	<title>A Regularized Conditional GAN for Posterior Sampling in Image Recovery Problems</title>
+	<meta property="og:title" content="A Regularized Conditional GAN for Posterior Sampling in Image Recovery Problems" />
+	<meta property="og:description" content="In image recovery problems, one seeks to infer an image from distorted, incomplete, and/or noise-corrupted measurements. Such problems arise in magnetic resonance imaging (MRI), computed tomography, deblurring, super-resolution, inpainting, phase retrieval, image-to-image translation, and other applications. Given a training set of signal/measurement pairs, we seek to do more than just produce one good image estimate. Rather, we aim to rapidly and accurately sample from the posterior distribution. To do this, we propose a regularized conditional Wasserstein GAN that generates dozens of high-quality posterior samples per second. Our regularization comprises an L1 penalty and an adaptively weighted standard-deviation reward. Using quantitative evaluation metrics like conditional Fréchet inception distance, we demonstrate that our method produces state-of-the-art posterior samples in both multicoil MRI and large-scale inpainting applications." />
+
+	<!-- Get from Google Analytics -->
+	<!-- Global site tag (gtag.js) - Google Analytics -->
+	<script async src=""></script>
+	<script>
+		window.dataLayer = window.dataLayer || [];
+		function gtag(){dataLayer.push(arguments);}
+		gtag('js', new Date());
+
+		gtag('config', 'UA-75863369-6');
+	</script>
+	<script src="https://kit.fontawesome.com/a4b7107b9e.js" crossorigin="anonymous"></script>
+	<script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+	<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
+</head>
+
+<body>
+	<nav class="navbar navbar-expand-lg navbar-light bg-light" style="background-color: #BB0000 !important;">
+		<div class="container">
+			<a class="navbar-brand" href="#">rcGAN</a>
+			<button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+				<span class="navbar-toggler-icon"></span>
+			</button>
+			<div class="collapse navbar-collapse" id="navbarNav">
+				<ul class="navbar-nav ml-auto" style="margin-left: auto;">
+					<li class="nav-item">
+						<a class="nav-link" href="#reg">Our Approach</a>
+				  	</li>
+				  <li class="nav-item">
+					<a class="nav-link" href="#experiments">Experiments</a>
+				  </li>
+<!--				  <li class="nav-item">-->
+<!--					<a class="nav-link" href="#inpaint">Inpainting</a>-->
+<!--				  </li>-->
+				  <li class="nav-item">
+					<a class="nav-link" href="#paper">Paper</a>
+				  </li>
+				</ul>
+			</div>
+		</div>
+
+	</nav>
+	<div class="container">
+		<div class="col center-col">
+			<h2 class="m-0 mt-3 bold">A Regularized Conditional GAN for Posterior Sampling in Image Recovery Problems</h2>
+			<h3 class="m-0 mt-3">NeurIPS 2023</h3>
+			<div class="row center-row mt-3" style="width: 100%;">
+				<h4 class="pl-2 pr-2" style="display: inline; width: auto;">Matthew Bendel</h4>
+				<h4 class="pl-2 pr-2" style="display: inline; width: auto;">Rizwan Ahmad</h4>
+				<h4 class="pl-2 pr-2" style="display: inline; width: auto;">Philip Schniter</h4>
+			</div>
+			<img class="m-0 mt-3" src="resources/osu-logo-block.png" alt="Ohio State Logo" style="max-width: 300px;" />
+			<div class="row center-row mt-3" style="font-size: 24px; width: 100%;">
+				<a style="display: inline; width: auto;" href="https://openreview.net/forum?id=z4vKRmq7UO" target="_blank" rel="noopener noreferrer">[<i class="fas fa-file-pdf" aria-hidden="true"></i> Paper]</a>
+				<a style="display: inline; width: auto;" href="https://openreview.net/forum?id=z4vKRmq7UO" target="_blank" rel="noopener noreferrer">[<i class="fas fa-file-pdf" aria-hidden="true"></i> Supplementary]</a>
+				<a style="display: inline; width: auto;" href="resources/poster.pdf" target="_blank" rel="noopener noreferrer">[<i class="fas fa-file-image" aria-hidden="true"></i> Poster]</a>
+				<a style="display: inline; width: auto;" href="https://github.com/matt-bendel/rcGAN" target="_blank" rel="noopener noreferrer">[<i class="fab fa-github" aria-hidden="true"></i> Code]</a>
+			</div>
+			<div class="osu-sep mt-5 mb-3"></div>
+			<h2 class="m-0 bold">Abstract</h2>
+			<p class="m-0 mt-3" style="text-align: left; font-size: 120%;">
+				In image recovery problems, one seeks to infer an image from distorted, incomplete, and/or noise-corrupted measurements. Such problems arise in magnetic resonance imaging (MRI), computed tomography, deblurring, super-resolution, inpainting, phase retrieval, image-to-image translation, and other applications. Given a training set of signal/measurement pairs, we seek to do more than just produce one good image estimate. Rather, we aim to rapidly and accurately sample from the posterior distribution. To do this, we propose a regularized conditional Wasserstein GAN that generates dozens of high-quality posterior samples per second. Our regularization comprises an L1 penalty and an adaptively weighted standard-deviation reward. Using quantitative evaluation metrics like conditional Fréchet inception distance, we demonstrate that our method produces state-of-the-art posterior samples in both multicoil MRI and large-scale inpainting applications.
+			</p>
+			<div id="reg" class="osu-sep mt-5 mb-3"></div>
+			<h2 class="m-0 bold">Our Main Contribution</h2>
+			<p class="m-0 mt-3" style="text-align: left; font-size: 120%;">
+				We regularize the <span class="bold">generator</span> of our cGAN with an <span class="bold">L1 penalty</span> on the generator's sample-average plus a <span class="bold">carefully weighted standard-deviation (STD) reward</span>.
+				For the case of an independent Gaussian posterior, we prove that our regularization recovers the correct posterior, that an <span class="bold">L2 penalty</span> fails, and that an <span class="bold">L2 penalty plus a variance reward</span> also fails.
+				<br><br>
+				Below, we show the contour plots of several regularizations for the simple case of a <span class="bold">scalar-Gaussian posterior</span> .
+				The contours are plotted versus the generator parameters, which in this case are the posterior mean and standard deviation.
+				The plots show that minimizing the proposed regularization recovers the correct parameters, while minimizing the other regularizations does not.
+				Please see our <a href="resources/poster.pdf" target="_blank">poster</a> or our <a href="https://openreview.net/forum?id=z4vKRmq7UO" target="_blank">paper</a>!
+			</p>
+			<div class="row mt-3">
+				<div class="col-lg-4">
+					<h5 style="padding-left: 5%;">L2</h5>
+					<img class="m-0" src="resources/l2_reg.png" alt="MRI Reconstruction at R=4" style="width: 100%;"/>
+				</div>
+				<div class="col-lg-4">
+					<h5 style="padding-left: 5%;">L2 + Variance Reward</h5>
+					<img class="m-0" src="resources/l2_var_reg.png" alt="MRI Reconstruction at R=8" style="width: 100%;"/>
+				</div>
+				<div class="col-lg-4">
+					<h5 style="padding-left: 5%;">Ours</h5>
+					<img class="m-0" src="resources/our_reg.png" alt="MRI Reconstruction at R=8" style="width: 100%;"/>
+				</div>
+			</div>
+			<h3 class="m-0 mt-3 bold">Adapting the Weight on the STD Reward</h3>
+			<p class="m-0 mt-3 mb-3" style="text-align: left; font-size: 120%;">
+				For the independent-Gaussian case, we derive the correct weight \(\beta\) on the STD reward in closed form. For practical datasets, we propose a method to learn \(\beta\).
+				In particular, we <span class="bold">adapt</span> \(\beta\) during training so that the SNR gain from averaging \(P\) posterior samples matches the expected theoretical behavior, the latter of which we derive in our paper.
+				<br><br>
+				The orange curves below show the <span class="bold">empirical SNR versus \(P\)</span> for various values of \(\beta\) (for the case of multicoil MR image recovery) while the blue dashed curves show the <span class="bold">expected theoretical behavior</span>.
+				The figures show that, for this application, the optimal \(\beta=0.53\).
+				Please see our <a href="resources/poster.pdf" target="_blank">poster</a> or our <a href="https://openreview.net/forum?id=z4vKRmq7UO" target="_blank">paper</a>!
+			</p>
+			<div class="row center-row" style="position: relative; margin-top: -5px;">
+				<div class="rotate-90" style="position: absolute; left: -40%; top: 40%;">PSNR</div>
+				<img class="m-0" src="resources/beta_v_p.png" alt="Visualizing the correct amount of variation" style="width: 80%;"/>
+			</div>
+			<div id="experiments" class="osu-sep mt-5 mb-3"></div>
+			<h2 class="m-0 bold">Sample Reconstructions</h2>
+			<p class="m-0 mt-3" style=" text-align: left; font-size: 120%;">We applied rcGAN to multicoil MRI reconstruction and large-scale image completion. For additional examples, please see our <a href="https://openreview.net/forum?id=z4vKRmq7UO" target="_blank">supplementary material</a>.</p>
+			<div class="row mt-3">
+				<div class="col-lg-6">
+					<h5 style="padding-left: 10%;">MRI Reconstruction</h5>
+					<p class="m-0 mt-3 mb-3" style="text-align: left; font-size: 110%;">
+						Samples from our cGAN show meaningful variations (see arrows)
+					</p>
+					<img class="m-0" src="resources/mri_fig.png" alt="MRI Reconstruction" style="width: 100%;"/>
+				</div>
+				<div class="col-lg-6">
+					<h5 style="padding-left: 10%;">Image Completion</h5>
+					<p class="m-0 mt-3 mb-3" style="text-align: left; font-size: 110%;">
+						Samples from our cGAN are both high quality and diverse
+					</p>
+					<img class="m-0 mt-3" src="resources/inpaint_fig.png" alt="Inpainting Reconstruction" style="width: 100%;"/>
+				</div>
+			</div>
+			<div id="paper" class="osu-sep mt-5 mb-3"></div>
+			<h2 class="m-0 bold">Paper</h2>
+			<h4 class="bold">A Regularized Conditional GAN for Posterior Sampling in Image Recovery Problems</h4>
+			<h5>Matthew Bendel, Rizwan Ahmad, Philip Schniter</h5>
+			<div class="row row-center mt-3" style="width: 100%;">
+				<!-- start arXiv -->
+                <div class="col-3 center-col">
+					<a href="https://arxiv.org/abs/2210.13389" target="_blank" rel="noopener noreferrer">
+						<img alt="" class="layered-paper-big" style="height:100%; max-height: 175px; max-width: 200px;" src="./resources/paper.png">
+					</a>
+				</div>
+				<!-- end arXiv -->
+
+				<!-- start paper -->
+                <div class="col-3 center-col">
+					<a href="https://openreview.net/forum?id=z4vKRmq7UO" target="_blank" rel="noopener noreferrer">
+						<img alt="" class="layered-paper-big" style="height:100%; max-height: 175px;" src="./resources/paper.png">
+					</a>
+				</div>
+				<!-- end paper -->
+
+				<!-- start supp -->
+                <div class="col-3 center-col">
+					<a href="https://openreview.net/forum?id=z4vKRmq7UO" target="_blank" rel="noopener noreferrer">
+						<img alt="" class="layered-paper-big" style="height:100%; max-height: 175px;" src="./resources/supp.png">
+					</a>
+				</div>
+				<!-- end supp -->
+
+				<!-- start github -->
+                <div class="col-3 center-col">
+					<a href="https://github.com/matt-bendel/rcGAN" target="_blank" rel="noopener noreferrer">
+						<img alt="" id="github_logo" class="round" style="max-width:150px" src="./resources/github_logo.png">
+					</a>
+				</div>
+				<!-- end github -->
+
+            </div>
+			<div class="row row-center mt-4" style="width: 100%;">
+				<!-- start arXiv -->
+                <div class="col-3 center-col">
+					<p style="margin-top: 5px;"><a href="https://arxiv.org/abs/2210.13389" target="_blank" rel="noopener noreferrer">[<i class="ai ai-arxiv"></i> ArXiv]</a></p>
+				</div>
+				<!-- end arXiv -->
+
+				<!-- start paper -->
+                <div class="col-3 center-col">
+					<p style="margin-top: 5px;"><a href="https://openreview.net/forum?id=z4vKRmq7UO" target="_blank" rel="noopener noreferrer">[<i class="fas fa-file-pdf" aria-hidden="true"></i> Paper]</a></p>
+				</div>
+				<!-- end paper -->
+
+				<!-- start supp -->
+                <div class="col-3 center-col">
+					<p style="margin-top: 5px;"><a href="https://openreview.net/forum?id=z4vKRmq7UO" target="_blank" rel="noopener noreferrer">[<i class="fas fa-file-pdf" aria-hidden="true"></i> Supplementary]</a></p>
+				</div>
+				<!-- end supp -->
+
+				<!-- start github -->
+                <div class="col-3 center-col">
+					<p style="margin-top: 5px;"><a target="_blank" rel="noopener noreferrer" href="https://github.com/matt-bendel/rcGAN">[Code]</a></p>
+				</div>
+				<!-- end github -->
+
+            </div>
+			<div class="osu-sep mt-5 mb-3"></div>
+			<h2 class="m-0 bold">Bibtex</h2>
+			<pre class="command-copy mt-3" style=" display: block; text-align: left;
+								background: #eee;
+								white-space: pre;
+								-webkit-overflow-scrolling: touch;
+								max-width: 100%;
+								min-width: 100px;
+								border-radius: 10px;
+								padding: 10;">@inproceedings{Bendel:NIPS:23,
+	title={A Regularized Conitional GAN for Posterior Sampling in Image Recovery Problems},
+	author={Bendel, Matthew and Ahmad, Rizwan, and Schniter, Philip},
+	booktitle={Thirty-seventh Conference on Neural Information Processing Systems},
+	year={2023},
+	url={https://openreview.net/forum?id=z4vKRmq7UO}
+}</pre>
+
+			<div class="osu-sep mt-5 mb-3"></div>
+			<h3 class="bold m-0">Acknowledgements</h3>
+			<p class="mb-5 mt-3" style="font-size: 11pt; text-align: left;">
+				The authors are funded in part by the National Institutes of Health under grant R01-EB029957.<br>
+				This webpage is based off the template that was originally made by <a target="_blank" rel="noopener noreferrer" href="http://web.mit.edu/phillipi/">Phillip Isola</a> and
+				<a target="_blank" rel="noopener noreferrer" href="http://richzhang.github.io/">Richard Zhang</a> for a <a target="_blank" rel="noopener noreferrer" href="http://richzhang.github.io/colorization/">colorful</a> ECCV project;
+				the code for the original template can be found <a target="_blank" rel="noopener noreferrer" href="https://github.com/richzhang/webpage-template">here</a>.<br>
+				This site uses <a target="_blank" rel="noopener noreferrer" href="https://getbootstrap.com/">bootstrap</a> and <a target="_blank" rel="noopener noreferrer" href="https://fontawesome.com/">font awesome</a>.
+				<br>
+			</p>
+		</div>
+	</div>
+	<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
+</body>
+</html>
+
