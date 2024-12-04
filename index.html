@@ -204,13 +204,61 @@ Numerical experiments demonstrate that our method outperforms contemporary cGANs
 			</p>
 			<div id="reg" class="osu-sep mt-5 mb-3"></div>
 			<h2 class="m-0 bold">Our Main Contribution</h2>
-			<p>TODO</p>
+			<p class="m-0 mt-3" style="text-align: left; font-size: 120%;">
+				We extend our previous work, <a href="https://matt-bendel.github.io/rcGAN/" target="_blank">rcGAN</a>, and propose
+				a new regularization for the <span style="font-weight: bold;">generator</span> that encourages correctness in the <span style="font-weight: bold;">\(K\)
+				principal components</span> of the posterior covariance matrix,
+				as well as the <span style="font-weight: bold;">posterior mean</span> and <span style="font-weight: bold;">posterior trace-covariance</span> when sampling the posterior. Our regularization is defined as
+				<br/><br/>
+				<span style="text-align: center; width: 100%; display: block;">
+				\(\mathcal{R}(\boldsymbol{\theta}) = \mathcal{L}_{\sf rc}(\boldsymbol{\theta}) + \beta_{\sf pca}(\mathcal{L}_{\sf evec}(\boldsymbol{\theta}) + \mathcal{L}_{\sf eval}(\boldsymbol{\theta})) \),
+				</span>
+				<br/><br/>
+				where \(\boldsymbol{\theta}\) are the generator's parameters, \(\mathcal{L}_{\sf rc}\) is rcGAN's regularization,
+				and \(\mathcal{L}_{\sf evec}, \mathcal{L}_{\sf eval}\) encourages the generator's principal
+				eigenvectors \(\{\hat{\boldsymbol{v}}_k\}_{k=1}^K\) and eigenvalues \(\{\hat{\lambda}_k\}_{k=1}^K\) to match those of the true covariance matrix:
+				\(\{\boldsymbol{v}_k\}_{k=1}^K\) and \(\{\lambda_k\}_{k=1}^K\).
+				Our approach outperforms existing cGANs and diffusion models on posterior sampling tasks like denoising, large-scale image completion, and accelerated MRI recovery,
+				while sampling orders-of-magnitude faster than those diffusion models.
+				<br />
+				<br />
+				We also demonstrate that pcaGAN recovers the posterior principal components more accurately than the <a href="https://eliasnehme.github.io/NPPC/" target="_blank">Neural Posterior Principal Components (NPPC)</a> method from Nehme et al., which directly
+				estimates them.
+			<h3 class="m-0 mt-3 bold">Eigenvector Regularization</h3>
+			<p class="m-0 mt-3" style="text-align: left; font-size: 120%;">
+				We define \(\mathcal{L}_{\sf evec}\) as
+				<br/><br/>
+				<span style="text-align: center; width: 100%; display: block;">
+				\(\mathcal{L}_{\sf evec}(\boldsymbol{\theta}) = -\mathbb{E}_{\sf y}\big\{ \mathbb{E}_{\sf x,z_1,\dots,z_P|y}\big\{ \sum_{k=1}^K[\hat{\boldsymbol{v}}_k^\mathsf{T}(\boldsymbol{x}-\boldsymbol{\mu}_{\sf x|y})]^2 \big|\boldsymbol{y}\big\}\big\}\),
+				</span>
+				<br/><br/>
+				where \(\boldsymbol{y}\) are our measurements, \(\boldsymbol{x}\) is the true image, \(\boldsymbol{\mu}_{\sf x|y}\) is the true posterior mean, and \(\{\hat{\boldsymbol{v}}_k\}_{k=1}^K\) are estimated posterior eigenvectors computed via and SVD of \(P=10K\) generator, \(G_{\boldsymbol{\theta}}\), posterior samples \(\{\hat{\boldsymbol{x}}_i:~\hat{\boldsymbol{x}}_i = G_{\boldsymbol{\theta}}(\boldsymbol{y}, \boldsymbol{z}_i)\}_{i=1}^P\) for \(\boldsymbol{z}_i\sim\mathcal{N}(\boldsymbol{0},\boldsymbol{I})\).
+				If \(\boldsymbol{\mu}_{\sf x|y}\) was known, minimizing over \(\boldsymbol{\theta}\) would force \(\{\hat{\boldsymbol{v}}_k=\boldsymbol{v}_k\}_{k=1}^K\).
+				Therefore, we approximate \(\boldsymbol{\mu}_{\sf x|y}\) as \(\boldsymbol{\mu}_{\sf x|y} \approx \hat{\boldsymbol{\mu}}_{\sf x|y} = \texttt{StopGrad}(\frac{1}{P}\sum_{i=1}^P\hat{\boldsymbol{x}}_i) \)
+        		after \(\frac{1}{P}\sum_{i=1}^P\hat{\boldsymbol{x}}_i\) stabilizes with respect to validation PSNR.
+			</p>
+			<h3 class="m-0 mt-3 bold">Eigenvalue Regularization</h3>
+			<p class="m-0 mt-3" style="text-align: left; font-size: 120%;">
+				We define \(\mathcal{L}_{\sf eval}\) as
+				<br/><br/>
+				<span style="text-align: center; width: 100%; display: block;">
+				\(\mathcal{L}_{\sf eval}(\boldsymbol{\theta})) = \mathbb{E}_{\sf y}\big\{ \mathbb{E}_{\sf x,z_1,\dots,z_P|y}\big\{ \sum_{k=1}^K\big(1 - \lambda_k/\hat{\lambda}_k\big) \big|\boldsymbol{y}\big\}\big\}\),
+				</span>
+				<br/><br/>
+				where \(\{\lambda_k\}_{k=1}^K\) are the true principal posterior eigenvalues and \(\{\hat{\lambda}_k\}_{k=1}^K\) are the estimated posterior eigenvalues, computed from the same SVD as above.
+				If \(\lambda_k\) was known, minimizing over \(\boldsymbol{\theta}\) would force \(\{\hat{\lambda}_k=\lambda_k\}_{k=1}^K\).
+				Therefore, we approximate \(\lambda_k\) as \(\lambda_k \approx \texttt{StopGrad}(\tfrac{1}{P_{\mathsf{pca}}+1}\big\|\hat{\boldsymbol{v}}_k^\textsf{T}[\boldsymbol{x}-\hat{\boldsymbol{\mu}}_{\sf x|y},\hat{\boldsymbol{x}}_1-\hat{\boldsymbol{\mu}}_{\sf x|y},\dots,\hat{\boldsymbol{x}}_{P}-\hat{\boldsymbol{\mu}}_{\sf x|y}]\big\|_2^2)\)
+        		after \(\{\hat{\boldsymbol{v}}_k\}_{k=1}^K\) stabilize, which is correct in expectation when \(\hat{\boldsymbol{v}}_k\) and \(\hat{\boldsymbol{\mu}}_{\sf x|y}\) are correct.
+				<br/>
+				<br/>
+				Please see our <a href="resources/poster.pdf" target="_blank">poster</a> or our <a href="https://openreview.net/pdf?id=Z0Nq3hHeEG" target="_blank">paper</a> for more information!
+			</p>
+			</p>
 			<div id="experiments" class="osu-sep mt-5 mb-3"></div>
 			<h2 class="m-0 bold">Sample Eigenvectors for MNIST Digits</h2>
-			<p class="m-0 mt-3" style=" text-align: left; font-size: 120%;">We used pcaGAN to denoise MNIST digits. Below, we show \(K\) principal covariance components, as well as \(\hat{\boldsymbol{\mu}}_{\sf x|y} \pm \alpha\hat{\boldsymbol{v}}_k\) for \(k\in\{1,4\}\) and \(\alpha\in\{-3,-2,0,2,3\}\). We compare with <a href="https://eliasnehme.github.io/NPPC/" target="_blank">NPPC</a>, which directly estimates the principal covariance components. For additional examples, please see our <a href="https://openreview.net/pdf?id=Z0Nq3hHeEG" target="_blank">supplementary material</a>.</p>
+			<p class="m-0 mt-3" style=" text-align: left; font-size: 120%;">We used pcaGAN to denoise MNIST digits. Below, we show \(K=5\) principal covariance components, as well as \(\hat{\boldsymbol{\mu}}_{\sf x|y} \pm \alpha\hat{\boldsymbol{v}}_k\) for \(k\in\{1,4\}\) and \(\alpha\in\{-3,-2,0,2,3\}\). We compare with <a href="https://eliasnehme.github.io/NPPC/" target="_blank">NPPC</a>, which directly estimates the principal covariance components. For additional examples, please see our <a href="https://openreview.net/pdf?id=Z0Nq3hHeEG" target="_blank">supplementary material</a>.</p>
 			<div class="row mt-3">
 				<div class="col-lg-12">
-					<h5 style="padding-left: 10%;">MRI Reconstruction</h5>
 					<p class="m-0 mt-3 mb-3" style="text-align: left; font-size: 110%;">
 						pcaGAN's eigenvectors show much more meaningful structure.
 					</p>
