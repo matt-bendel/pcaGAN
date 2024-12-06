@@ -1,76 +1,138 @@
-# A Regularized Conditional GAN for Posterior Sampling in Image Recovery Problems, NeurIPS 2023 [[arXiv]](https://arxiv.org/abs/2210.13389) [[Open Review]](https://openreview.net/pdf?id=z4vKRmq7UO)
+# pcaGAN: Improving Posterior-Sampling cGANs via Principal Component Regularization, NeurIPS 2024 [[arXiv]](https://arxiv.org/pdf/2411.00605) [[Open Review]](https://openreview.net/pdf?id=Z0Nq3hHeEG)
 
-This repo contains the official implementation for the paper [A Regularized Conditional GAN for Posterior Sampling in Image Recovery Problems](https://openreview.net/forum?id=z4vKRmq7UO)
+This repo contains the official implementation for the paper [pcaGAN: Improving Posterior-Sampling cGANs via Principal Component Regularization](https://openreview.net/forum?id=Z0Nq3hHeEG)
 
 By: Matthew Bendel, Rizwan Ahmad, and Philip Schniter
 
 ## Abstract
-In image recovery problems, one seeks to infer an image from distorted, incomplete, and/or noise-corrupted measurements. Such problems arise in magnetic resonance imaging (MRI), computed tomography, deblurring, super-resolution, inpainting, phase retrieval, image-to-image translation, and other applications. Given a training set of signal/measurement pairs, we seek to do more than just produce one good image estimate. Rather, we aim to rapidly and accurately sample from the posterior distribution. To do this, we propose a regularized conditional Wasserstein GAN that generates dozens of high-quality posterior samples per second. Our regularization comprises an 
-L1 penalty and an adaptively weighted standard-deviation reward. Using quantitative evaluation metrics like conditional Fréchet inception distance, we demonstrate that our method produces state-of-the-art posterior samples in both multicoil MRI and large-scale inpainting applications.
+In ill-posed imaging inverse problems, there can exist many hypotheses that fit
+both the observed measurements and prior knowledge of the true image. Rather
+than returning just one hypothesis of that image, posterior samplers aim to explore the full solution space by generating many probable hypotheses, which can
+later be used to quantify uncertainty or construct recoveries that appropriately
+navigate the perception/distortion trade-off. In this work, we propose a fast and
+accurate posterior-sampling conditional generative adversarial network (cGAN)
+that, through a novel form of regularization, aims for correctness in the posterior
+mean as well as the trace and K principal components of the posterior covariance
+matrix. Numerical experiments demonstrate that our method outperforms contemporary cGANs and diffusion models in imaging inverse problems like denoising,
+large-scale inpainting, and accelerated MRI recovery.
 
 ---
 
-## Setup
-See ```docs/setup.md``` for basic environment setup instructions.
+This code is still under construction. Please check back later!
 
-## Reproducing our Results
-### MRI
-See ```docs/mri.md``` for instructions on how to setup and reproduce our MRI results.
+[//]: # (## Setup)
 
-## Extending the Code
-See ```docs/new_applications.md``` for basic instructions on how to extend the code to your application.
+[//]: # (See ```docs/setup.md``` for basic environment setup instructions.)
 
-## Questions and Concerns
-If you have any questions, or run into any issues, don't hesitate to reach out at bendel.8@osu.edu.
+[//]: # ()
+[//]: # (## Reproducing our Results)
 
-## References
-This repository contains code from the following works, which should be cited:
+[//]: # (### MRI)
 
-```
-@article{zbontar2018fastmri,
-  title={fastMRI: An open dataset and benchmarks for accelerated MRI},
-  author={Zbontar, Jure and Knoll, Florian and Sriram, Anuroop and Murrell, Tullie and Huang, Zhengnan and Muckley, Matthew J and Defazio, Aaron and Stern, Ruben and Johnson, Patricia and Bruno, Mary and others},
-  journal={arXiv preprint arXiv:1811.08839},
-  year={2018}
-}
+[//]: # (See ```docs/mri.md``` for instructions on how to setup and reproduce our MRI results.)
 
-@article{devries2019evaluation,
-  title={On the evaluation of conditional GANs},
-  author={DeVries, Terrance and Romero, Adriana and Pineda, Luis and Taylor, Graham W and Drozdzal, Michal},
-  journal={arXiv preprint arXiv:1907.08175},
-  year={2019}
-}
+[//]: # ()
+[//]: # (## Extending the Code)
 
-@inproceedings{Karras2020ada,
-  title={Training Generative Adversarial Networks with Limited Data},
-  author={Tero Karras and Miika Aittala and Janne Hellsten and Samuli Laine and Jaakko Lehtinen and Timo Aila},
-  booktitle={Proc. NeurIPS},
-  year={2020}
-}
+[//]: # (See ```docs/new_applications.md``` for basic instructions on how to extend the code to your application.)
 
-@inproceedings{zhao2021comodgan,
-  title={Large Scale Image Completion via Co-Modulated Generative Adversarial Networks},
-  author={Zhao, Shengyu and Cui, Jonathan and Sheng, Yilun and Dong, Yue and Liang, Xiao and Chang, Eric I and Xu, Yan},
-  booktitle={International Conference on Learning Representations (ICLR)},
-  year={2021}
-}
+[//]: # ()
+[//]: # (## Questions and Concerns)
 
-@misc{zeng2022github,
-    howpublished = {Downloaded from \url{https://github.com/zengxianyu/co-mod-gan-pytorch}},
-    month = sep,
-    author={Yu Zeng},
-    title = {co-mod-gan-pytorch},
-    year = 2022
-}
-```
+[//]: # (If you have any questions, or run into any issues, don't hesitate to reach out at bendel.8@osu.edu.)
 
-## Citation
-If you find this code helpful, please cite our paper:
-```
-@journal{bendel2022arxiv,
-  author = {Bendel, Matthew and Ahmad, Rizwan and Schniter, Philip},
-  title = {A Regularized Conditional {GAN} for Posterior Sampling in Inverse Problems},
-  year = {2022},
-  journal={arXiv:2210.13389}
-}
-```
+[//]: # ()
+[//]: # (## References)
+
+[//]: # (This repository contains code from the following works, which should be cited:)
+
+[//]: # ()
+[//]: # (```)
+
+[//]: # (@article{zbontar2018fastmri,)
+
+[//]: # (  title={fastMRI: An open dataset and benchmarks for accelerated MRI},)
+
+[//]: # (  author={Zbontar, Jure and Knoll, Florian and Sriram, Anuroop and Murrell, Tullie and Huang, Zhengnan and Muckley, Matthew J and Defazio, Aaron and Stern, Ruben and Johnson, Patricia and Bruno, Mary and others},)
+
+[//]: # (  journal={arXiv preprint arXiv:1811.08839},)
+
+[//]: # (  year={2018})
+
+[//]: # (})
+
+[//]: # ()
+[//]: # (@article{devries2019evaluation,)
+
+[//]: # (  title={On the evaluation of conditional GANs},)
+
+[//]: # (  author={DeVries, Terrance and Romero, Adriana and Pineda, Luis and Taylor, Graham W and Drozdzal, Michal},)
+
+[//]: # (  journal={arXiv preprint arXiv:1907.08175},)
+
+[//]: # (  year={2019})
+
+[//]: # (})
+
+[//]: # ()
+[//]: # (@inproceedings{Karras2020ada,)
+
+[//]: # (  title={Training Generative Adversarial Networks with Limited Data},)
+
+[//]: # (  author={Tero Karras and Miika Aittala and Janne Hellsten and Samuli Laine and Jaakko Lehtinen and Timo Aila},)
+
+[//]: # (  booktitle={Proc. NeurIPS},)
+
+[//]: # (  year={2020})
+
+[//]: # (})
+
+[//]: # ()
+[//]: # (@inproceedings{zhao2021comodgan,)
+
+[//]: # (  title={Large Scale Image Completion via Co-Modulated Generative Adversarial Networks},)
+
+[//]: # (  author={Zhao, Shengyu and Cui, Jonathan and Sheng, Yilun and Dong, Yue and Liang, Xiao and Chang, Eric I and Xu, Yan},)
+
+[//]: # (  booktitle={International Conference on Learning Representations &#40;ICLR&#41;},)
+
+[//]: # (  year={2021})
+
+[//]: # (})
+
+[//]: # ()
+[//]: # (@misc{zeng2022github,)
+
+[//]: # (    howpublished = {Downloaded from \url{https://github.com/zengxianyu/co-mod-gan-pytorch}},)
+
+[//]: # (    month = sep,)
+
+[//]: # (    author={Yu Zeng},)
+
+[//]: # (    title = {co-mod-gan-pytorch},)
+
+[//]: # (    year = 2022)
+
+[//]: # (})
+
+[//]: # (```)
+
+[//]: # ()
+[//]: # (## Citation)
+
+[//]: # (If you find this code helpful, please cite our paper:)
+
+[//]: # (```)
+
+[//]: # (@journal{bendel2022arxiv,)
+
+[//]: # (  author = {Bendel, Matthew and Ahmad, Rizwan and Schniter, Philip},)
+
+[//]: # (  title = {A Regularized Conditional {GAN} for Posterior Sampling in Inverse Problems},)
+
+[//]: # (  year = {2022},)
+
+[//]: # (  journal={arXiv:2210.13389})
+
+[//]: # (})
+[//]: # (```)
