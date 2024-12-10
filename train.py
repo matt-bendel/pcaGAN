@@ -8,8 +8,8 @@ import pytorch_lightning as pl
 
 from pytorch_lightning.callbacks import ModelCheckpoint
 from data.lightning.MRIDataModule import MRIDataModule
+from data.lightning.FFHQDataModule import FFHQDataModule
 from utils.parse_args import create_arg_parser
-from models.lightning.rcGAN import rcGAN
 from pytorch_lightning import seed_everything
 from pytorch_lightning.loggers import WandbLogger
 
@@ -33,6 +33,16 @@ if __name__ == '__main__':
 
         dm = MRIDataModule(cfg)
 
+        from models.lightning.pcaGAN_mri import pcaGAN
+        model = pcaGAN(cfg, args.exp_name, args.num_gpus)
+    elif args.inpainting:
+        with open('configs/inpainting.yml', 'r') as f:
+            cfg = yaml.load(f, Loader=yaml.FullLoader)
+            cfg = json.loads(json.dumps(cfg), object_hook=load_object)
+
+        dm = FFHQDataModule(cfg)
+
+        from models.lightning.pcaGAN_inpainting import pcaGAN
         model = rcGAN(cfg, args.exp_name, args.num_gpus)
     else:
         print("No valid application selected. Please include one of the following args: --mri")

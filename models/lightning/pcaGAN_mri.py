@@ -19,7 +19,7 @@ from evaluation_scripts.metrics import psnr
 from torchmetrics.functional import peak_signal_noise_ratio
 from utils.mri.transforms import to_tensor
 
-class rcGAN(pl.LightningModule):
+class pcaGAN(pl.LightningModule):
     def __init__(self, args, exp_name, num_gpus):
         super().__init__()
         self.args = args
@@ -39,15 +39,49 @@ class rcGAN(pl.LightningModule):
             out_chans=self.out_chans
         )
 
+        self.feature_extractor = vgg16(pretrained=True).eval()
+        self.feature_extractor = WrapVGG(self.feature_extractor).eval()
+        self.transforms = torch.nn.Sequential(
+            transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
+        )
+
+        # self.discriminator = PatchDisc(
+        #     input_nc=args.in_chans * 2
+        # )
+
         self.std_mult = 1
+        # self.std_mult_latent = 0.5
+        # self.latent_weight = 1e-1
+        self.beta_pca = 1e-2
+        self.lam_eps = 0
         self.is_good_model = 0
         self.resolution = self.args.im_size
-
+        self.cfid = CFIDMetric(None, None, None, None)
         self.save_hyperparameters()  # Save passed values
 
+    def _get_embed_im(self, multi_coil_inp, mean, std, maps):
+        embed_ims = torch.zeros(size=(multi_coil_inp.size(0), 3, self.args.im_size, self.args.im_size),
+                                device=self.device)
+        reformatted = self.reformat(multi_coil_inp * std[:, None, None, None] + mean[:, None, None, None])
+        unnormal_im = reformatted
+
+        for i in range(multi_coil_inp.size(0)):
+            x_hat = torch.view_as_complex(unnormal_im[i])
+            maps_complex_conj = torch.view_as_complex(maps[i]).conj()
+
+            im = torch.sum(maps_complex_conj * x_hat, dim=0).abs()
+            im = (im - torch.min(im)) / (torch.max(im) - torch.min(im))
+
+            embed_ims[i, 0, :, :] = im
+            embed_ims[i, 1, :, :] = im
+            embed_ims[i, 2, :, :] = im
+
+        return self.feature_extractor(self.transforms(embed_ims))
+
     def get_noise(self, num_vectors, mask):
-        z = torch.randn(num_vectors, 2, self.resolution, self.resolution, device=self.device)
-        return z
+        z = torch.randn(num_vectors, self.resolution, self.resolution, 2, device=self.device)
+
+        return z.permute(0, 3, 1, 2)
 
     def reformat(self, samples):
         reformatted_tensor = torch.zeros(size=(samples.size(0), 8, self.resolution, self.resolution, 2),
@@ -109,6 +143,15 @@ class rcGAN(pl.LightningModule):
         return fake_pred.mean() - real_pred.mean()
 
     def adversarial_loss_generator(self, y, gens):
+        patch_out = 94
+        # fake_pred = torch.zeros(size=(y.shape[0], self.args.num_z_train, patch_out, patch_out), device=self.device)
+        # for k in range(y.shape[0]):
+        #     cond = torch.zeros(1, gens.shape[2], gens.shape[3], gens.shape[4], device=self.device)
+        #     cond[0, :, :, :] = y[k, :, :, :]
+        #     cond = cond.repeat(self.args.num_z_train, 1, 1, 1)
+        #     temp = self.discriminator(input=gens[k], y=cond)
+        #     fake_pred[k, :, :, :] = temp[:, 0, :, :]
+
         fake_pred = torch.zeros(size=(y.shape[0], self.args.num_z_train), device=self.device)
         for k in range(y.shape[0]):
             cond = torch.zeros(1, gens.shape[2], gens.shape[3], gens.shape[4], device=self.device)
@@ -129,9 +172,9 @@ class rcGAN(pl.LightningModule):
 
         return - adv_weight * gen_pred_loss.mean()
 
-    def l1_std_p(self, avg_recon, gens, x):
-        return F.l1_loss(avg_recon, x) - self.std_mult * np.sqrt(
-            2 / (np.pi * self.args.num_z_train * (self.args.num_z_train+ 1))) * torch.std(gens, dim=1).mean()
+    def l1_std_p(self, avg_recon, gens, x, std_mult):
+        return F.l1_loss(avg_recon, x) - std_mult * np.sqrt(
+            2 / (np.pi * self.args.num_z_train * (self.args.num_z_train + 1))) * torch.std(gens, dim=1).mean()
 
     def gradient_penalty(self, x_hat, x, y):
         gradient_penalty = self.compute_gradient_penalty(x.data, x_hat.data, y.data)
@@ -142,7 +185,7 @@ class rcGAN(pl.LightningModule):
         return 0.001 * torch.mean(real_pred ** 2)
 
     def training_step(self, batch, batch_idx, optimizer_idx):
-        y, x, mask, mean, std, _, _, _ = batch
+        y, x, mask, mean, std, maps, _, _ = batch
 
         # train generator
         if optimizer_idx == 1:
@@ -152,11 +195,60 @@ class rcGAN(pl.LightningModule):
             for z in range(self.args.num_z_train):
                 gens[:, z, :, :, :] = self.forward(y, mask)
 
-            avg_recon = torch.mean(gens, dim=1)
-
-            # adversarial loss is binary cross-entropy
             g_loss = self.adversarial_loss_generator(y, gens)
-            g_loss += self.l1_std_p(avg_recon, gens, x)
+
+            avg_recon_pixel = torch.mean(gens, dim=1)
+
+            l1_std_pixel = self.l1_std_p(avg_recon_pixel, gens, x, self.std_mult)
+            g_loss += l1_std_pixel
+            self.log('l1_std_pixel', l1_std_pixel, prog_bar=True)
+
+            if (self.global_step - 1) % self.args.pca_reg_freq == 0 and self.current_epoch >= 25:
+                gens_embed = torch.zeros(
+                    size=(y.size(0), self.args.num_z_pca, 2359296),
+                    device=self.device)
+                for z in range(self.args.num_z_pca):
+                    gens_embed[:, z, :] = self.forward(y, mask).view(y.size(0), -1)
+
+                gens_zm = gens_embed - torch.mean(gens_embed, dim=1)[:, None, :].clone().detach()
+                gens_zm = gens_zm.view(gens_embed.shape[0], self.args.num_z_pca, -1)
+
+                x_zm = x.view(y.size(0), -1) - torch.mean(gens_embed, dim=1).clone().detach()
+                x_zm = x_zm.view(gens_embed.shape[0], -1)
+
+                w_loss = 0
+                sig_loss = 0
+
+                for n in range(gens_zm.shape[0]):
+                    _, S, Vh = torch.linalg.svd(gens_zm[n], full_matrices=False)
+
+                    current_x_xm = x_zm[n, :]
+                    inner_product = torch.sum(Vh * current_x_xm[None, :], dim=1)
+
+                    w_obj = inner_product ** 2
+                    w_loss += 1 / (torch.norm(current_x_xm, p=2) ** 2 * (self.args.num_z_pca // 10)).detach() * w_obj[
+                                                                                                                0:self.args.num_z_pca // 10].sum()  # 1e-3 for 25 iters
+
+                    gens_zm_det = gens_zm[n].detach()
+                    gens_zm_det[0, :] = x_zm[n, :].view(-1).detach()
+
+                    if self.current_epoch >= 50:
+                        inner_product_mat = 1 / self.args.num_z_pca * torch.matmul(Vh, torch.matmul(
+                            torch.transpose(gens_zm_det.clone().detach(), 0, 1),
+                            torch.matmul(gens_zm_det.clone().detach(), Vh.mT)))
+
+                        # cfg 1
+                        sig_diff = 1 / (torch.norm(current_x_xm, p=2) ** 2 * (self.args.num_z_pca // 10)).detach() * (
+                                    1 - 1 / (S ** 2 + self.lam_eps) * torch.diag(
+                                inner_product_mat.clone().detach())) ** 2
+
+                        sig_loss += self.beta_pca * sig_diff[0:self.args.num_z_pca // 10].sum()
+
+                w_loss_g = - self.beta_pca * w_loss
+                self.log('w_loss', w_loss_g, prog_bar=True)
+                self.log('sig_loss', sig_loss, prog_bar=True)
+                g_loss += w_loss_g
+                g_loss += sig_loss
 
             self.log('g_loss', g_loss, prog_bar=True)
 
@@ -190,7 +282,8 @@ class rcGAN(pl.LightningModule):
         gens = torch.zeros(size=(y.size(0), 8, self.args.in_chans, self.args.im_size, self.args.im_size),
                            device=self.device)
         for z in range(num_code):
-            gens[:, z, :, :, :] = self.forward(y, mask) * std[:, None, None, None] + mean[:, None, None, None] # EXPERIMENTAL UN
+            gens[:, z, :, :, :] = self.forward(y, mask) * std[:, None, None, None] + mean[:, None, None,
+                                                                                     None]  # EXPERIMENTAL UN
 
         avg = torch.mean(gens, dim=1)
 
@@ -206,12 +299,17 @@ class rcGAN(pl.LightningModule):
         for j in range(y.size(0)):
             S = sp.linop.Multiply((self.args.im_size, self.args.im_size), tensor_to_complex_np(maps[j].cpu()))
 
+            ############# EXPERIMENTAL #################
             # ON CPU
-            avg_sp_out = torch.tensor(S.H * tensor_to_complex_np(avg_gen[j].cpu())).abs().unsqueeze(0).unsqueeze(0).to(self.device)
-            single_sp_out = torch.tensor(S.H * tensor_to_complex_np(self.reformat(gens[:, 0])[j].cpu())).abs().unsqueeze(0).unsqueeze(0).to(self.device)
-            gt_sp_out = torch.tensor(S.H * tensor_to_complex_np(gt[j].cpu())).abs().unsqueeze(0).unsqueeze(0).to(self.device)
+            avg_sp_out = torch.tensor(S.H * tensor_to_complex_np(avg_gen[j].cpu())).abs().unsqueeze(0).unsqueeze(0).to(
+                self.device)
+            single_sp_out = torch.tensor(
+                S.H * tensor_to_complex_np(self.reformat(gens[:, 0])[j].cpu())).abs().unsqueeze(0).unsqueeze(0).to(
+                self.device)
+            gt_sp_out = torch.tensor(S.H * tensor_to_complex_np(gt[j].cpu())).abs().unsqueeze(0).unsqueeze(0).to(
+                self.device)
 
-            # ON GPU - Does not work with DDP
+            # ON GPU
             # avg_sp_out = complex_abs(sp.to_pytorch(S.H * sp.from_pytorch(avg_gen[j], iscomplex=True))).unsqueeze(0).unsqueeze(0)
             # single_sp_out = complex_abs(sp.to_pytorch(S.H * sp.from_pytorch(self.reformat(gens[:, 0])[j], iscomplex=True))).unsqueeze(0).unsqueeze(0)
             # gt_sp_out = complex_abs(sp.to_pytorch(S.H * sp.from_pytorch(gt[j], iscomplex=True))).unsqueeze(0).unsqueeze(0)
@@ -232,6 +330,12 @@ class rcGAN(pl.LightningModule):
         self.log('psnr_8_step', psnr_8s.mean(), on_step=True, on_epoch=False, prog_bar=True)
         self.log('psnr_1_step', psnr_1s.mean(), on_step=True, on_epoch=False, prog_bar=True)
 
+        img_e = self._get_embed_im(gens[:, 0, :, :, :], mean, std, maps)
+        cond_e = self._get_embed_im(y, mean, std, maps)
+        true_e = self._get_embed_im(x, mean, std, maps)
+
+        ############################################
+
         if batch_idx == 0:
             if self.global_rank == 0 and self.current_epoch % 5 == 0 and fig_count == 0:
                 fig_count += 1
@@ -245,17 +349,33 @@ class rcGAN(pl.LightningModule):
 
                 self.logger.log_image(
                     key=f"epoch_{self.current_epoch}_img",
-                    images=[Image.fromarray(np.uint8(plot_gt_np*255), 'L'), Image.fromarray(np.uint8(plot_avg_np*255), 'L'), Image.fromarray(np.uint8(cm.jet(5*np.abs(plot_gt_np - plot_avg_np))*255))],
+                    images=[Image.fromarray(np.uint8(plot_gt_np * 255), 'L'),
+                            Image.fromarray(np.uint8(plot_avg_np * 255), 'L'),
+                            Image.fromarray(np.uint8(cm.jet(5 * np.abs(plot_gt_np - plot_avg_np)) * 255))],
                     caption=["GT", f"Recon: PSNR (NP): {np_psnr:.2f}", "Error"]
                 )
 
             self.trainer.strategy.barrier()
 
-        return {'psnr_8': psnr_8s.mean(), 'psnr_1': psnr_1s.mean()}
+        return {'psnr_8': psnr_8s.mean(), 'psnr_1': psnr_1s.mean(), 'img_e': img_e, 'cond_e': cond_e, 'true_e': true_e}
 
     def validation_epoch_end(self, validation_step_outputs):
+        # GATHER
         avg_psnr = self.all_gather(torch.stack([x['psnr_8'] for x in validation_step_outputs]).mean()).mean()
         avg_single_psnr = self.all_gather(torch.stack([x['psnr_1'] for x in validation_step_outputs]).mean()).mean()
+
+        true_embed = torch.cat([x['true_e'] for x in validation_step_outputs], dim=0)
+        image_embed = torch.cat([x['img_e'] for x in validation_step_outputs], dim=0)
+        cond_embed = torch.cat([x['cond_e'] for x in validation_step_outputs], dim=0)
+
+        cfid, _, _ = self.cfid.get_cfid_torch_pinv(image_embed, true_embed, cond_embed)
+        cfid = self.all_gather(cfid).mean()
+
+        self.log('cfid', cfid, prog_bar=True)
+
+        # NO GATHER
+        # avg_psnr = torch.stack([x['psnr_8'] for x in validation_step_outputs]).mean()
+        # avg_single_psnr = torch.stack([x['psnr_1'] for x in validation_step_outputs]).mean()
 
         avg_psnr = avg_psnr.cpu().numpy()
         avg_single_psnr = avg_single_psnr.cpu().numpy()
@@ -264,12 +384,19 @@ class rcGAN(pl.LightningModule):
         psnr_diff = psnr_diff
 
         mu_0 = 2e-2
+        # mu_0_latent = 2e-4
         self.std_mult += mu_0 * psnr_diff
+        # self.std_mult_latent += mu_0_latent * psnr_diff
 
-        if np.abs(psnr_diff) <= self.args.psnr_gain_tol:
+        if np.abs(psnr_diff) <= 0.25:
             self.is_good_model = 1
         else:
             self.is_good_model = 0
+
+        if self.global_rank == 0 and self.current_epoch % 1 == 0:
+            send_mail(f"EPOCH {self.current_epoch + 1} UPDATE - rcGAN",
+                      f"Std. Dev. Weight: {self.std_mult:.4f}\nMetrics:\nPSNR: {avg_psnr:.2f}\nSINGLE PSNR: {avg_single_psnr:.2f}\nPSNR Diff: {psnr_diff}",
+                      file_name="variation_gif.gif")
 
         self.trainer.strategy.barrier()
 
@@ -278,7 +405,18 @@ class rcGAN(pl.LightningModule):
                                  betas=(self.args.beta_1, self.args.beta_2))
         opt_d = torch.optim.Adam(self.discriminator.parameters(), lr=self.args.lr,
                                  betas=(self.args.beta_1, self.args.beta_2))
-        return [opt_d, opt_g], []
+
+        reduce_lr_on_plateau_mean = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            opt_g,
+            mode='min',
+            factor=0.8,
+            patience=15,
+            min_lr=1e-4,
+        )
+
+        lr_scheduler = {"scheduler": reduce_lr_on_plateau_mean, "monitor": "cfid"}
+
+        return [opt_d, opt_g], []#lr_scheduler
 
     def on_save_checkpoint(self, checkpoint):
         checkpoint["beta_std"] = self.std_mult

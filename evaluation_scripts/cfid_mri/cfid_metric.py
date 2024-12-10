@@ -1,14 +1,16 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 import os
-import time
-
 import torch
 
 import numpy as np
 import sigpy as sp
+import sigpy.mri as mr
 
+import torchvision.transforms as transforms
+from utils.mri.fftc import fft2c_new, ifft2c_new
+from utils.mri.math import complex_abs, tensor_to_complex_np
 from tqdm import tqdm
-
+from fastmri.data.transforms import to_tensor
 
 def symmetric_matrix_square_root_torch(mat, eps=1e-10):
     """Compute square root of a symmetric matrix.
@@ -122,11 +124,8 @@ class CFIDMetric:
                  cuda=False,
                  args=None,
                  eps=1e-6,
-                 num_samps=1,
-                 truncation=None,
-                 truncation_latent=None,
-                 dev_loader=None,
-                 train_loader=None,):
+                 ref_loader=False,
+                 num_samps=1):
 
         self.gan = gan
         self.args = args
@@ -137,18 +136,28 @@ class CFIDMetric:
         self.eps = eps
         self.gen_embeds, self.cond_embeds, self.true_embeds = None, None, None
         self.num_samps = num_samps
-        self.truncatuon = truncation
-        self.truncation_latent = truncation_latent
-        self.dev_loader = dev_loader
-        self.train_loader = train_loader
+        self.ref_loader = ref_loader
+        self.transforms = torch.nn.Sequential(
+            transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
+        )
 
-    def _get_embed_im(self, inp, mean, std):
-        embed_ims = torch.zeros(size=(inp.size(0), 3, 256, 256),
-                                device=inp.device)
-        for i in range(inp.size(0)):
-            im = inp[i, :, :, :] * std[i, :, None, None] + mean[i, :, None, None]
-            im = 2 * (im - torch.min(im)) / (torch.max(im) - torch.min(im)) - 1
-            embed_ims[i, :, :, :] = im
+    def _get_embed_im(self, multi_coil_inp, mean, std, maps):
+        embed_ims = torch.zeros(size=(multi_coil_inp.size(0), 3, self.args.im_size, self.args.im_size)).cuda()
+        for i in range(multi_coil_inp.size(0)):
+            reformatted = torch.zeros(size=(8, self.args.im_size, self.args.im_size, 2)).cuda()
+            reformatted[:, :, :, 0] = multi_coil_inp[i, 0:8, :, :]
+            reformatted[:, :, :, 1] = multi_coil_inp[i, 8:16, :, :]
+
+            unnormal_im = reformatted * std[i] + mean[i]
+
+            S = sp.linop.Multiply((self.args.im_size, self.args.im_size), maps[i])
+
+            im = torch.tensor(S.H * tensor_to_complex_np(unnormal_im.cpu())).abs().cuda()
+            im = (im - torch.min(im)) / (torch.max(im) - torch.min(im))
+
+            embed_ims[i, 0, :, :] = im
+            embed_ims[i, 1, :, :] = im
+            embed_ims[i, 2, :, :] = im
 
         return embed_ims
 
@@ -156,37 +165,40 @@ class CFIDMetric:
         image_embed = []
         cond_embed = []
         true_embed = []
-        times = []
-
+        cfids = []
+        count = 0
         for i, data in tqdm(enumerate(self.loader),
                             desc='Computing generated distribution',
                             total=len(self.loader)):
-            y, x, mask, mean, std = data[0]
-            x = x.cuda()
-            y = y.cuda()
-            mask = mask.cuda()
+            condition, gt, mask, mean, std, maps, _, _ = data
+            condition = condition.cuda()
+            gt = gt.cuda()
             mean = mean.cuda()
             std = std.cuda()
+            mask = mask.cuda()
+            maps = []
 
             with torch.no_grad():
-                for j in range(self.num_samps):
-                    start = time.time()
-                    recon = self.gan(y, mask)
-                    end = time.time() - start
-                    times.append(end)
+                for j in range(condition.shape[0]):
+                    new_y_true = fft2c_new(self.gan.reformat(condition)[j] * std[j] + mean[j])
+                    s_maps = mr.app.EspiritCalib(tensor_to_complex_np(new_y_true.cpu()), calib_width=16,
+                                                 device=sp.Device(3), show_pbar=False, crop=0.70,
+                                                 kernel_width=6).run().get()
 
-                    image = self._get_embed_im(recon, mean, std)
-                    condition_im = self._get_embed_im(y, mean, std)
-                    true_im = self._get_embed_im(x, mean, std)
+                    maps.append(s_maps)
 
-                    img_e = self.image_embedding(image)
-                    cond_e = self.condition_embedding(condition_im)
-                    true_e = self.image_embedding(true_im)
+                for l in range(self.num_samps):
+                    recon = self.gan(condition, mask)
+
+                    image = self._get_embed_im(recon, mean, std, maps)
+                    condition_im = self._get_embed_im(condition, mean, std, maps)
+                    true_im = self._get_embed_im(gt, mean, std, maps)
+
+                    img_e = self.image_embedding(self.transforms(image))
+                    cond_e = self.condition_embedding(self.transforms(condition_im))
+                    true_e = self.image_embedding(self.transforms(true_im))
 
                     if self.cuda:
-                        # true_embed.append(true_e.to('cuda:2'))
-                        # image_embed.append(img_e.to('cuda:1'))
-                        # cond_embed.append(cond_e.to('cuda:1'))
                         true_embed.append(true_e)
                         image_embed.append(img_e)
                         cond_embed.append(cond_e)
@@ -195,83 +207,47 @@ class CFIDMetric:
                         image_embed.append(img_e.cpu().numpy())
                         cond_embed.append(cond_e.cpu().numpy())
 
-        print(np.mean(times))
+        if self.ref_loader:
+            with torch.no_grad():
+                for i, data in tqdm(enumerate(self.ref_loader),
+                                    desc='Computing generated distribution',
+                                    total=len(self.ref_loader)):
+                    condition, gt, mask, mean, std, maps, _, _ = data
+                    condition = condition.cuda()
+                    gt = gt.cuda()
+                    mean = mean.cuda()
+                    std = std.cuda()
+                    mask = mask.cuda()
+                    maps = []
 
+                    with torch.no_grad():
+                        for j in range(condition.shape[0]):
+                            new_y_true = fft2c_new(self.gan.reformat(condition)[j] * std[j] + mean[j])
+                            s_maps = mr.app.EspiritCalib(tensor_to_complex_np(new_y_true.cpu()), calib_width=16,
+                                                         device=sp.Device(3), show_pbar=False, crop=0.70,
+                                                         kernel_width=6).run().get()
 
-        if self.dev_loader:
-            for i, data in tqdm(enumerate(self.dev_loader),
-                                desc='Computing generated distribution',
-                                total=len(self.dev_loader)):
-                y, x, mask, mean, std = data[0]
-                x = x.cuda()
-                y = y.cuda()
-                mask = mask.cuda()
-                mean = mean.cuda()
-                std = std.cuda()
+                            maps.append(s_maps)
 
-                # truncation_latent = None
-                # if self.truncation_latent is not None:
-                #     truncation_latent = self.truncation_latent.unsqueeze(0).repeat(y.size(0), 1)
+                        for l in range(self.num_samps):
+                            recon = self.gan(condition, mask)
 
-                with torch.no_grad():
-                    for j in range(self.num_samps):
-                        recon = self.gan(y, mask)
+                            image = self._get_embed_im(recon, mean, std, maps)
+                            condition_im = self._get_embed_im(condition, mean, std, maps)
+                            true_im = self._get_embed_im(gt, mean, std, maps)
 
-                        image = self._get_embed_im(recon, mean, std)
-                        condition_im = self._get_embed_im(y, mean, std)
-                        true_im = self._get_embed_im(x, mean, std)
+                            img_e = self.image_embedding(self.transforms(image))
+                            cond_e = self.condition_embedding(self.transforms(condition_im))
+                            true_e = self.image_embedding(self.transforms(true_im))
 
-                        img_e = self.image_embedding(image)
-                        cond_e = self.condition_embedding(condition_im)
-                        true_e = self.image_embedding(true_im)
-
-                        if self.cuda:
-                            # true_embed.append(true_e.to('cuda:2'))
-                            # image_embed.append(img_e.to('cuda:1'))
-                            # cond_embed.append(cond_e.to('cuda:1'))
-                            true_embed.append(true_e)
-                            image_embed.append(img_e)
-                            cond_embed.append(cond_e)
-                        else:
-                            true_embed.append(true_e.cpu().numpy())
-                            image_embed.append(img_e.cpu().numpy())
-                            cond_embed.append(cond_e.cpu().numpy())
-
-        if self.train_loader:
-            for i, data in tqdm(enumerate(self.train_loader),
-                                desc='Computing generated distribution',
-                                total=len(self.train_loader)):
-                y, x, mask, mean, std = data[0]
-                x = x.cuda()
-                y = y.cuda()
-                mask = mask.cuda()
-                mean = mean.cuda()
-                std = std.cuda()
-
-                with torch.no_grad():
-                    for j in range(self.num_samps):
-                        recon = self.gan(y, mask)
-
-                        image = self._get_embed_im(recon, mean, std)
-                        condition_im = self._get_embed_im(y, mean, std)
-                        true_im = self._get_embed_im(x, mean, std)
-
-                        img_e = self.image_embedding(image)
-                        cond_e = self.condition_embedding(condition_im)
-                        true_e = self.image_embedding(true_im)
-
-                        if self.cuda:
-                            # true_embed.append(true_e.to('cuda:2'))
-                            # image_embed.append(img_e.to('cuda:1'))
-                            # cond_embed.append(cond_e.to('cuda:1'))
-                            true_embed.append(true_e)
-                            image_embed.append(img_e)
-                            cond_embed.append(cond_e)
-                        else:
-                            true_embed.append(true_e.cpu().numpy())
-                            image_embed.append(img_e.cpu().numpy())
-                            cond_embed.append(cond_e.cpu().numpy())
-
+                            if self.cuda:
+                                true_embed.append(true_e)
+                                image_embed.append(img_e)
+                                cond_embed.append(cond_e)
+                            else:
+                                true_embed.append(true_e.cpu().numpy())
+                                image_embed.append(img_e.cpu().numpy())
+                                cond_embed.append(cond_e.cpu().numpy())
 
         if self.cuda:
             true_embed = torch.cat(true_embed, dim=0)
@@ -285,7 +261,7 @@ class CFIDMetric:
         return image_embed.to(dtype=torch.float64), cond_embed.to(dtype=torch.float64), true_embed.to(
             dtype=torch.float64)
 
-    def get_cfid_torch_pinv(self, resample=True,y_predict=None, x_true=None, y_true = None):
+    def get_cfid_torch_pinv(self, resample=True, y_predict=None, x_true=None, y_true=None):
         if y_true is None:
             y_predict, x_true, y_true = self._get_generated_distribution()
 
@@ -310,28 +286,26 @@ class CFIDMetric:
         inv_c_x_true_x_true = torch.linalg.pinv(torch.matmul(no_m_x_true.t(), no_m_x_true) / y_predict.shape[0])
 
         c_y_true_given_x_true = c_y_true_y_true - torch.matmul(c_y_true_x_true,
-                                                            torch.matmul(inv_c_x_true_x_true, c_x_true_y_true))
+                                                               torch.matmul(inv_c_x_true_x_true, c_x_true_y_true))
         c_y_predict_given_x_true = c_y_predict_y_predict - torch.matmul(c_y_predict_x_true,
-                                                                     torch.matmul(inv_c_x_true_x_true, c_x_true_y_predict))
+                                                                        torch.matmul(inv_c_x_true_x_true,
+                                                                                     c_x_true_y_predict))
         c_y_true_x_true_minus_c_y_predict_x_true = c_y_true_x_true - c_y_predict_x_true
         c_x_true_y_true_minus_c_x_true_y_predict = c_x_true_y_true - c_x_true_y_predict
 
         # Distance between Gaussians
         m_dist = torch.einsum('...k,...k->...', m_y_true - m_y_predict, m_y_true - m_y_predict)
-        c_dist1 = torch.trace(torch.matmul(torch.matmul(c_y_true_x_true_minus_c_y_predict_x_true, inv_c_x_true_x_true),
-                                            c_x_true_y_true_minus_c_x_true_y_predict))
+        c_dist1 = torch.trace(
+            torch.matmul(torch.matmul(c_y_true_x_true_minus_c_y_predict_x_true, inv_c_x_true_x_true),
+                         c_x_true_y_true_minus_c_x_true_y_predict))
         c_dist_2_1 = torch.trace(c_y_true_given_x_true + c_y_predict_given_x_true)
         c_dist_2_2 = - 2 * trace_sqrt_product_torch(
             c_y_predict_given_x_true, c_y_true_given_x_true)
 
         c_dist2 = c_dist_2_1 + c_dist_2_2
 
-        c_dist = c_dist1 + c_dist2
-
-        # print(f"M: {m_dist.cpu().numpy()}")
-        # print(f"C: {c_dist.cpu().numpy()}")
-
         cfid = m_dist + c_dist1 + c_dist2
 
-        return cfid
+        c_dist = c_dist1 + c_dist2
 
+        return cfid.cpu().numpy(), m_dist.cpu().numpy(), c_dist.cpu().numpy()

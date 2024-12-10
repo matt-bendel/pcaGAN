@@ -11,7 +11,7 @@ import matplotlib.patches as patches
 from data.lightning.MRIDataModule import MRIDataModule
 from utils.parse_args import create_arg_parser
 from pytorch_lightning import seed_everything
-from models.lightning.rcGAN import rcGAN
+from models.lightning.pcaGAN_mri import pcaGAN
 from utils.mri.math import complex_abs, tensor_to_complex_np
 import matplotlib.pyplot as plt
 from matplotlib import gridspec
@@ -37,12 +37,12 @@ if __name__ == "__main__":
     test_loader = dm.test_dataloader()
 
     with torch.no_grad():
-        rcGAN_model = rcGAN.load_from_checkpoint(
+        pcaGAN_model = pcaGAN.load_from_checkpoint(
             checkpoint_path=cfg.checkpoint_dir + args.exp_name + '/checkpoint_best.ckpt')
 
-        rcGAN_model.cuda()
+        pcaGAN_model.cuda()
 
-        rcGAN_model.eval()
+        pcaGAN_model.eval()
 
         for i, data in enumerate(test_loader):
             y, x, mask, mean, std, maps, fname, slice = data
@@ -56,12 +56,12 @@ if __name__ == "__main__":
                 size=(y.size(0), cfg.num_z_test, cfg.in_chans // 2, cfg.im_size, cfg.im_size, 2)).cuda()
 
             for z in range(cfg.num_z_test):
-                gens_rcgan[:, z, :, :, :, :] = rcGAN_model.reformat(rcGAN_model.forward(y, mask))
+                gens_rcgan[:, z, :, :, :, :] = pcaGAN_model.reformat(pcaGAN_model.forward(y, mask))
 
             avg_rcgan = torch.mean(gens_rcgan, dim=1)
 
-            gt = rcGAN_model.reformat(x)
-            zfr = rcGAN_model.reformat(y)
+            gt = pcaGAN_model.reformat(x)
+            zfr = pcaGAN_model.reformat(y)
 
             for j in range(y.size(0)):
                 np_avgs = {

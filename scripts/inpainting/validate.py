@@ -6,12 +6,13 @@ import json
 import numpy as np
 import pytorch_lightning as pl
 
-from data.lightning.MRIDataModule import MRIDataModule
+from data.lightning.FFHQDataModule import FFHQDataModule
 from utils.parse_args import create_arg_parser
-from models.lightning.pcaGAN_mri import pcaGAN
+from models.lightning.pcaGAN_inpainting import pcaGAN
+
 from pytorch_lightning import seed_everything
-from utils.embeddings import VGG16Embedding
-from evaluation_scripts.cfid_mri.cfid_metric import CFIDMetric
+from utils.embeddings import InceptionEmbedding
+from evaluation_scripts.cfid.cfid_metric import CFIDMetric
 
 def load_object(dct):
     return types.SimpleNamespace(**dct)
@@ -21,18 +22,19 @@ if __name__ == "__main__":
     args = create_arg_parser().parse_args()
     seed_everything(1, workers=True)
 
-    with open('configs/mri.yml', 'r') as f:
+    fname = 'configs/inpainting.yml'
+    with open(fname, 'r') as f:
         cfg = yaml.load(f, Loader=yaml.FullLoader)
         cfg = json.loads(json.dumps(cfg), object_hook=load_object)
 
-    dm = MRIDataModule(cfg)
+    dm = FFHQDataModule(cfg)
     dm.setup()
     val_loader = dm.val_dataloader()
     best_epoch = -1
-    inception_embedding = VGG16Embedding()
+    inception_embedding = InceptionEmbedding()
     best_cfid = 10000000
-    start_epoch = 50
-    end_epoch = 100
+    start_epoch = 150
+    end_epoch = 200
 
     with torch.no_grad():
         for epoch in range(start_epoch, end_epoch):
@@ -41,10 +43,6 @@ if __name__ == "__main__":
                 model = pcaGAN.load_from_checkpoint(checkpoint_path=cfg.checkpoint_dir + args.exp_name + f'/checkpoint-epoch={epoch}.ckpt')
             except Exception as e:
                 print(e)
-                continue
-
-            if model.is_good_model == 0:
-                print("NO GOOD: SKIPPING...")
                 continue
 
             model = model.cuda()
@@ -56,10 +54,10 @@ if __name__ == "__main__":
                                      condition_embedding=inception_embedding,
                                      cuda=True,
                                      args=cfg,
-                                     ref_loader=False,
+                                     train_loader=False,
                                      num_samps=1)
 
-            cfids = cfid_metric.get_cfid_torch_pinv()
+            cfids = cfid_metric.get_cfid_torch_pinv().cpu().numpy()
 
             cfid_val = np.mean(cfids)
 
@@ -69,8 +67,8 @@ if __name__ == "__main__":
 
     print(f"BEST EPOCH: {best_epoch}")
 
-    for epoch in range(50, end_epoch):
-        if epoch != best_epoch:
-            os.remove(cfg.checkpoint_dir + args.exp_name + f'/checkpoint-epoch={epoch}.ckpt')
+    # for epoch in range(start_epoch, end_epoch):
+    #     if epoch != best_epoch:
+    #         os.remove(cfg.checkpoint_dir + args.exp_name + f'/checkpoint-epoch={epoch}.ckpt')
 
     os.rename(cfg.checkpoint_dir + args.exp_name + f'/checkpoint-epoch={best_epoch}.ckpt', cfg.checkpoint_dir + args.exp_name + f'/checkpoint_best.ckpt')

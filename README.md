@@ -18,121 +18,114 @@ large-scale inpainting, and accelerated MRI recovery.
 
 ---
 
-This code is still under construction. Please check back later!
+## Setup
 
-[//]: # (## Setup)
+See ```docs/setup.md``` for basic environment setup instructions.
 
-[//]: # (See ```docs/setup.md``` for basic environment setup instructions.)
+## Reproducing our Results
 
-[//]: # ()
-[//]: # (## Reproducing our Results)
+### MRI
 
-[//]: # (### MRI)
+See ```docs/mri.md``` for instructions on how to setup and reproduce our MRI results.
 
-[//]: # (See ```docs/mri.md``` for instructions on how to setup and reproduce our MRI results.)
+### Inpainting
 
-[//]: # ()
-[//]: # (## Extending the Code)
+See ```docs/inpainting.md``` for instructions on how to setup and reproduce our FFHQ inpainting results.
 
-[//]: # (See ```docs/new_applications.md``` for basic instructions on how to extend the code to your application.)
+## Extending the Code
 
-[//]: # ()
-[//]: # (## Questions and Concerns)
+See ```docs/new_applications.md``` for basic instructions on how to extend the code to your application.
 
-[//]: # (If you have any questions, or run into any issues, don't hesitate to reach out at bendel.8@osu.edu.)
+## Questions and Concerns
 
-[//]: # ()
-[//]: # (## References)
+If you have any questions, or run into any issues, don't hesitate to reach out at bendel.8@osu.edu.
 
-[//]: # (This repository contains code from the following works, which should be cited:)
+## References
 
-[//]: # ()
-[//]: # (```)
+This repository contains code from the following works, which should be cited:
 
-[//]: # (@article{zbontar2018fastmri,)
+```
 
-[//]: # (  title={fastMRI: An open dataset and benchmarks for accelerated MRI},)
+@article{zbontar2018fastmri,
 
-[//]: # (  author={Zbontar, Jure and Knoll, Florian and Sriram, Anuroop and Murrell, Tullie and Huang, Zhengnan and Muckley, Matthew J and Defazio, Aaron and Stern, Ruben and Johnson, Patricia and Bruno, Mary and others},)
+  title={fastMRI: An open dataset and benchmarks for accelerated MRI},
 
-[//]: # (  journal={arXiv preprint arXiv:1811.08839},)
+  author={Zbontar, Jure and Knoll, Florian and Sriram, Anuroop and Murrell, Tullie and Huang, Zhengnan and Muckley, Matthew J and Defazio, Aaron and Stern, Ruben and Johnson, Patricia and Bruno, Mary and others},
 
-[//]: # (  year={2018})
+  journal={arXiv preprint arXiv:1811.08839},
 
-[//]: # (})
+  year={2018}
 
-[//]: # ()
-[//]: # (@article{devries2019evaluation,)
+}
 
-[//]: # (  title={On the evaluation of conditional GANs},)
 
-[//]: # (  author={DeVries, Terrance and Romero, Adriana and Pineda, Luis and Taylor, Graham W and Drozdzal, Michal},)
+@article{devries2019evaluation,
 
-[//]: # (  journal={arXiv preprint arXiv:1907.08175},)
+  title={On the evaluation of conditional GANs},
 
-[//]: # (  year={2019})
+  author={DeVries, Terrance and Romero, Adriana and Pineda, Luis and Taylor, Graham W and Drozdzal, Michal},
 
-[//]: # (})
+  journal={arXiv preprint arXiv:1907.08175},
 
-[//]: # ()
-[//]: # (@inproceedings{Karras2020ada,)
+  year={2019}
 
-[//]: # (  title={Training Generative Adversarial Networks with Limited Data},)
+}
 
-[//]: # (  author={Tero Karras and Miika Aittala and Janne Hellsten and Samuli Laine and Jaakko Lehtinen and Timo Aila},)
 
-[//]: # (  booktitle={Proc. NeurIPS},)
+@inproceedings{Karras2020ada,
 
-[//]: # (  year={2020})
+  title={Training Generative Adversarial Networks with Limited Data},
 
-[//]: # (})
+  author={Tero Karras and Miika Aittala and Janne Hellsten and Samuli Laine and Jaakko Lehtinen and Timo Aila},
 
-[//]: # ()
-[//]: # (@inproceedings{zhao2021comodgan,)
+  booktitle={Proc. NeurIPS},
 
-[//]: # (  title={Large Scale Image Completion via Co-Modulated Generative Adversarial Networks},)
+  year={2020}
 
-[//]: # (  author={Zhao, Shengyu and Cui, Jonathan and Sheng, Yilun and Dong, Yue and Liang, Xiao and Chang, Eric I and Xu, Yan},)
+}
 
-[//]: # (  booktitle={International Conference on Learning Representations &#40;ICLR&#41;},)
 
-[//]: # (  year={2021})
+@inproceedings{zhao2021comodgan,
 
-[//]: # (})
+  title={Large Scale Image Completion via Co-Modulated Generative Adversarial Networks},
 
-[//]: # ()
-[//]: # (@misc{zeng2022github,)
+  author={Zhao, Shengyu and Cui, Jonathan and Sheng, Yilun and Dong, Yue and Liang, Xiao and Chang, Eric I and Xu, Yan},
 
-[//]: # (    howpublished = {Downloaded from \url{https://github.com/zengxianyu/co-mod-gan-pytorch}},)
+  booktitle={International Conference on Learning Representations (ICLR)},
 
-[//]: # (    month = sep,)
+  year={2021}
 
-[//]: # (    author={Yu Zeng},)
+}
 
-[//]: # (    title = {co-mod-gan-pytorch},)
 
-[//]: # (    year = 2022)
+@misc{zeng2022github,
 
-[//]: # (})
+    howpublished = {Downloaded from \url{https://github.com/zengxianyu/co-mod-gan-pytorch}},
 
-[//]: # (```)
+    month = sep,
 
-[//]: # ()
-[//]: # (## Citation)
+    author={Yu Zeng},
 
-[//]: # (If you find this code helpful, please cite our paper:)
+    title = {co-mod-gan-pytorch},
 
-[//]: # (```)
+    year = 2022
 
-[//]: # (@journal{bendel2022arxiv,)
+}
 
-[//]: # (  author = {Bendel, Matthew and Ahmad, Rizwan and Schniter, Philip},)
+```
 
-[//]: # (  title = {A Regularized Conditional {GAN} for Posterior Sampling in Inverse Problems},)
 
-[//]: # (  year = {2022},)
+## Citation
 
-[//]: # (  journal={arXiv:2210.13389})
+If you find this code helpful, please cite our paper:
 
-[//]: # (})
-[//]: # (```)
+```
+
+@inproceedings{Bendel:NIPS:24,
+	title={pca{GAN}: {I}mproving Posterior-Sampling {cGANs} via Principal Component Regularization},
+	author={Bendel, Matthew and Ahmad, Rizwan, and Schniter, Philip},
+	booktitle={Thirty-eigth Conference on Neural Information Processing Systems},
+	year={2024},
+	url={https://openreview.net/pdf?id=Z0Nq3hHeEG}
+}
+```

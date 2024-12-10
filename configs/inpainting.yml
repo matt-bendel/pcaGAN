@@ -1,0 +1,31 @@
+checkpoint_dir: "/storage/inpainting_models/"
+data_path: "/storage/FFHQ/ffhq256"
+data_path_test: "/storage/FFHQ/ffhq256_900_if"
+
+# Number of code vectors for each phase
+num_z_test: 32
+num_z_valid: 8
+num_z_train: 2
+num_z_pca: 20
+num_pc: 2
+pca_reg_freq: 100
+
+# Data
+in_chans: 4
+out_chans: 3
+im_size: 256
+image_size: 256
+
+# Optimizer:
+lr: 0.001
+beta_1: 0
+beta_2: 0.99
+
+# Loss weights
+gp_weight: 10
+adv_weight: 0.005
+
+# Training
+batch_size: 1 # test 40 train 5
+num_epochs: 100
+psnr_gain_tol: 0.25

@@ -11,11 +11,11 @@ import numpy as np
 from data.lightning.MRIDataModule import MRIDataModule
 from utils.parse_args import create_arg_parser
 from pytorch_lightning import seed_everything
-from models.lightning.rcGAN import rcGAN
+from models.lightning.pcaGAN_mri import pcaGAN
 from utils.mri.math import complex_abs, tensor_to_complex_np
 from evaluation_scripts.metrics import psnr, ssim
 from utils.embeddings import VGG16Embedding
-from evaluation_scripts.cfid.cfid_metric import CFIDMetric
+from evaluation_scripts.cfid_mri.cfid_metric import CFIDMetric
 from utils.mri.fftc import ifft2c_new, fft2c_new
 import sigpy as sp
 import sigpy.mri as mr
@@ -65,7 +65,7 @@ if __name__ == "__main__":
     dists_met = DISTS()
 
     with torch.no_grad():
-        model = rcGAN.load_from_checkpoint(
+        model = pcaGAN.load_from_checkpoint(
             checkpoint_path=cfg.checkpoint_dir + args.exp_name + '/checkpoint_best.ckpt')
         model.cuda()
         model.eval()
