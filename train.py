@@ -43,7 +43,7 @@ if __name__ == '__main__':
         dm = FFHQDataModule(cfg)
 
         from models.lightning.pcaGAN_inpainting import pcaGAN
-        model = rcGAN(cfg, args.exp_name, args.num_gpus)
+        model = pcaGAN(cfg, args.exp_name, args.num_gpus)
     else:
         print("No valid application selected. Please include one of the following args: --mri")
         exit()
